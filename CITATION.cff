@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use this code, please cite the paper it accompanies, listed in the README of its folder."
+title: "paper-code: code accompanying research papers by Matthew Badger"
+type: software
+authors:
+  - family-names: Badger
+    given-names: Matthew
+    affiliation: University of Connecticut
+repository-code: "https://github.com/matthew-badger/paper-code"
+license: MIT
