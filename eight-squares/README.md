@@ -13,6 +13,11 @@ The current version of `verify_eight_squares.py` is **1.1.0** (October 20, 2026)
 - **1.1.0** (October 20, 2026). Matches the current manuscript: eight lower bounds b\_1, …, b\_8 together with the column bound of the seven-square paper (Lemma 2.4), Figure 3.1 set over two pages, and the current numbering of sections, tables, figures, and equations. The comparison with the LaTeX source now checks the general statement of Lemma 2.4, every side-sum definition in the text, and both dimensions of every drawn square. Adds the version number.
 - **1.0.0** (October 16, 2026). First release.
 
+## Files
+
+- `verify_eight_squares.py`: the verification script.
+- `8-square.tex`: the LaTeX source of the paper (version of October 20, 2026), for use with `--tex`.
+
 ## Running the checks
 
 The script needs Python 3.8 or later and uses only the standard library. All arithmetic is exact integer arithmetic.
