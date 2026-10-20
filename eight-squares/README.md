@@ -16,7 +16,7 @@ The current version of `verify_eight_squares.py` is **1.1.0** (October 20, 2026)
 ## Files
 
 - `verify_eight_squares.py`: the verification script.
-- `8-square.tex`: the LaTeX source of the paper (version of October 20, 2026), for use with `--tex`.
+- `8-square.tex`: the LaTeX source of the paper (version of October 20, 2026), for use with `--tex`. The reference list is included in the file, so it compiles with `pdflatex` alone.
 
 ## Running the checks
 
