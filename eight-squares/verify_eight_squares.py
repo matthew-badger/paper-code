@@ -26,6 +26,8 @@ Verification of the computations in
     M. Badger, "An exact formula for optimal axis-parallel packing of
     eight squares".
 
+Version 1.1.0 (October 20, 2026).  Run with --version to print it.
+
 All arithmetic is exact (Python integers).  The script uses only the
 standard library.  Run
 
@@ -50,6 +52,8 @@ import itertools
 import random
 import re
 import sys
+
+__version__ = "1.1.0"
 
 N8 = 8
 GREEK = ["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta",
@@ -163,7 +167,7 @@ ILLUSTRATIONS = {
 # Equation (1.1): L_6^* is the maximum of these side sums.
 L6_TERMS = ["01", "234", "145"]
 
-# Equation (2.5) and Table 4.1: recurring side sums.
+# Table 4.1 and equation (5.1): recurring side sums.
 NAMES = {
     "W": "3456", "H": "125", "C0": "056", "C3": "136", "R": "1456",
     "D": "137", "E": "047", "P": "14567",
@@ -173,26 +177,32 @@ NAMES = {
     "Prho": "1457", "Pchi": "0567", "V": "2567", "X": "3467", "Y": "2467",
 }
 
-# Propositions 4.1-4.11: the nine lower bounds b_i, as minima of side sums.
-# "KK" stands for the balanced-partition bound \mathcal K of Proposition 4.1.
+# Lemma 2.4 (the column bound of the seven-square paper) for n = 8:
+# min(D, P) with D = s_1+s_3+s_7 and P = P_8.
+COLUMN_BOUND = ["137", "14567"]
+COLUMN_BOUND_BY_NAME = ["D", "P"]
+
+# Section 4: the eight lower bounds b_1,...,b_8 of Propositions 4.1-4.11, as
+# minima of side sums, except that b_1 also involves the expression \mathcal K.
+# "KK" stands for the balanced-partition expression \mathcal K of Proposition 4.1.
+BOUND_INDICES = range(1, 9)
 BOUNDS = {
     1: ["067", "KK"],
-    2: ["137", "14567"],
-    3: ["056", "047", "124", "1267"],
-    4: ["127", "2567"],
-    5: ["037", "045", "135", "1367", "1457", "0567"],
-    6: ["027", "036", "045", "135", "126", "2567"],
-    7: ["047", "3467"],
-    8: ["047", "124", "2467"],
-    9: ["047", "134", "1467", "0567"],
+    2: ["056", "047", "124", "1267"],
+    3: ["127", "2567"],
+    4: ["037", "045", "135", "1367", "1457", "0567"],
+    5: ["027", "036", "045", "135", "126", "2567"],
+    6: ["047", "3467"],
+    7: ["047", "124", "2467"],
+    8: ["047", "134", "1467", "0567"],
 }
 
 # Table 5.1: the same bounds written with the names of Table 4.1.
 BOUNDS_BY_NAME = {
-    1: ["T", "KK"], 2: ["D", "P"], 3: ["C0", "E", "J4", "J67"],
-    4: ["J7", "V"], 5: ["G7", "U", "H5", "Ppi", "Prho", "Pchi"],
-    6: ["K", "G6", "U", "H5", "J6", "V"], 7: ["E", "X"],
-    8: ["E", "J4", "Y"], 9: ["E", "H4", "M", "Pchi"],
+    1: ["T", "KK"], 2: ["C0", "E", "J4", "J67"],
+    3: ["J7", "V"], 4: ["G7", "U", "H5", "Ppi", "Prho", "Pchi"],
+    5: ["K", "G6", "U", "H5", "J6", "V"], 6: ["E", "X"],
+    7: ["E", "J4", "Y"], 8: ["E", "H4", "M", "Pchi"],
 }
 
 # Lemma 5.1: the five balanced partitions (part containing 1, other part).
@@ -200,8 +210,8 @@ FIVE_PARTITIONS = {
     "xi": ("137", "245"), "sigma": ("147", "235"), "tau": ("145", "237"),
     "upsilon": ("157", "234"), "phi": ("127", "345"),
 }
-# Lemma 5.1, proof: each remaining partition (named by its part containing 1)
-# is dominated by the indicated one of the five.
+# Lemma 5.1, proof: the indicated one of the five has no larger maximum
+# part-sum than each remaining partition (named by its part containing 1).
 PARTITION_DOMINATION = {"123": "phi", "124": "phi", "125": "phi",
                         "134": "xi", "135": "xi"}
 
@@ -219,7 +229,7 @@ SEVEN_COSTS = {"top": L6_TERMS + ["3456", "125"],
                "center": L6_TERMS + ["056", "136"],
                "right": L6_TERMS + ["1456"]}
 
-# Section 3, after (3.1): restrictions with the cost of a seven-square strategy.
+# Section 3, after (3.2): restrictions with the cost of a seven-square strategy.
 RESTRICTION_CLASS = {
     "beta": "center", "theta": "center", "pi": "center", "rho": "center",
     "chi": "center", "omicron": "top", "phi": "top",
@@ -240,7 +250,7 @@ FIGURE_1_1 = {
           {0: (0, 0), 1: (23, 10), 2: (0, 26), 3: (28, 28), 4: (15, 29), 5: (31, 0), 6: (21, 0), 7: (15, 21)}),
 }
 
-FIGURE_2_1 = {  # Lemma 2.11, m = 6
+FIGURE_2_1 = {  # Lemma 2.9, m = 6
     "a": ((12, 8, 7, 6, 5, 4, 3), 25,
           {0: (0, 0), 1: (17, 0), 2: (0, 12), 3: (11, 12), 4: (17, 8), 5: (7, 12), 6: (18, 13)}),
     "b": ((12, 8, 7, 6, 5, 4, 3), 20,
@@ -297,7 +307,7 @@ def ssum(s, term):
 
 
 def prefix_nonneg(c):
-    """Coefficient test (2.4): sum_i c_i s_i >= 0 for every nonincreasing
+    """Coefficient test (3.1): sum_i c_i s_i >= 0 for every nonincreasing
     nonnegative s if and only if every prefix sum of c is nonnegative."""
     acc = 0
     for x in c:
@@ -341,7 +351,7 @@ def eval_form(f, s, L):
 def certify(f, cost_terms, n):
     """Certify a*L + c.s >= 0 for every nonincreasing nonnegative s and every
     L >= max of cost_terms(s).  Returns a description of the certificate, or
-    None.  As in Section 2, the certificate adds a times one cost term and
+    None.  As in the proof of Proposition 3.1, the certificate adds a times one cost term and
     applies the coefficient test."""
     a, c = f[n], f[:n]
     if a < 0:
@@ -374,7 +384,7 @@ def L6(s):
 
 
 def L7(s):
-    """Equation (1.2), equivalently (2.6)."""
+    """Equation (1.2), equivalently (5.1)."""
     n = {k: ssum(s, v) for k, v in NAMES.items() if k in ("W", "H", "C0", "C3", "R")}
     return max(L6(s), min(max(n["W"], n["H"]), max(n["C0"], n["C3"]), n["R"]))
 
@@ -401,7 +411,7 @@ for _I in itertools.combinations((1, 2, 3, 4, 5, 7), 3):
 
 
 def KK(s):
-    """Balanced-partition bound \\mathcal K of Proposition 4.1."""
+    """Balanced-partition expression \\mathcal K of Proposition 4.1."""
     return min(max(s[6] + ssum(s, I), s[6] + ssum(s, J)) for I, J in PARTITIONS)
 
 
@@ -471,7 +481,7 @@ def transitive_closure(R):
 
 
 def uniform_strategy(table_row, cost_terms):
-    """Lemma 2.6 for the coordinates in table_row and L >= max(cost_terms).
+    """Proposition 3.1 for the coordinates in table_row and L >= max(cost_terms).
     Certifies containment and, for each ordered pair, the separations that
     hold uniformly.  Returns (H, V, problems)."""
     n = len(table_row)
@@ -559,12 +569,14 @@ def check_formulas(rep):
     rep.ok(sorted(PIECES) == sorted(GREEK), "Table 1.1 lists the twenty-three maxima")
     seven_names = {"W": "3456", "H": "125", "C0": "056", "C3": "136", "R": "1456"}
     rep.ok(all(NAMES[k] == v for k, v in seven_names.items()),
-           "names W, H, C_0, C_3, R agree with (2.5) and (1.2)")
-    for i in range(1, 10):
+           "names W, H, C_0, C_3, R agree with (1.2) and (5.1)")
+    for i in BOUND_INDICES:
         exp = sorted("KK" if t == "KK" else NAMES[t] for t in BOUNDS_BY_NAME[i])
-        rep.ok(exp == sorted(BOUNDS[i]), "Table 5.1 row b_%d agrees with Proposition 4.x" % i)
+        rep.ok(exp == sorted(BOUNDS[i]), "Table 5.1 row b_%d agrees with the definition in Section 4" % i)
     rep.ok(len(PARTITIONS) == 10, "ten balanced 3+3 partitions of {1,2,3,4,5,7}")
-    rep.note("checked %d recurring names and nine lower bounds" % len(NAMES))
+    rep.ok(sorted(NAMES[x] for x in COLUMN_BOUND_BY_NAME) == sorted(COLUMN_BOUND),
+           "Lemma 2.4 at n = 8: min(D, P) in the names of Table 4.1")
+    rep.note("checked %d recurring names, the column bound, and b_1,...,b_8" % len(NAMES))
 
 
 # ---------------------------------------------------------------------------
@@ -605,7 +617,7 @@ def check_constructions(rep):
 
 
 # ---------------------------------------------------------------------------
-# Check C: the illustrations in Figures 3.1 and 3.2
+# Check C: the illustrations in Figure 3.1
 # ---------------------------------------------------------------------------
 
 def tight_terms(s, w, L):
@@ -613,7 +625,7 @@ def tight_terms(s, w, L):
 
 
 def check_illustrations(rep):
-    rep.begin("C. Figures 3.1 and 3.2")
+    rep.begin("C. Figure 3.1")
     for w in GREEK:
         s, L = ILLUSTRATIONS[w]
         rep.ok(nonincreasing(s), "%s: side vector is nonincreasing" % w)
@@ -632,11 +644,11 @@ def check_illustrations(rep):
 
 
 # ---------------------------------------------------------------------------
-# Check D: restrictions to the seven largest squares (Section 1, (3.1))
+# Check D: restrictions to the seven largest squares (Sections 1 and 3, (3.2))
 # ---------------------------------------------------------------------------
 
 def restricted_terms(w):
-    """Equation (3.1): side sums of max(L_6^*, omega(s_0,...,s_6,0))."""
+    """Equation (3.2): side sums of max(L_6^*, omega(s_0,...,s_6,0))."""
     terms = list(L6_TERMS) + [t.replace("7", "") for t in PIECES[w]]
     return reduce_terms([t for t in terms if t], 7)
 
@@ -646,7 +658,7 @@ def restricted_cost(s, w):
 
 
 def check_restrictions(rep, strategies):
-    rep.begin("D. Restrictions to Q_0,...,Q_6: equation (3.1) and Section 1")
+    rep.begin("D. Restrictions to Q_0,...,Q_6: equation (3.2), Sections 1 and 3")
     canon = {k: reduce_terms(v, 7) for k, v in SEVEN_COSTS.items()}
     gens = [[1] * k + [0] * (7 - k) for k in range(1, 8)]
     small = []
@@ -654,13 +666,13 @@ def check_restrictions(rep, strategies):
         small.append(tuple(sum(c[j] * gens[j][i] for j in range(7)) for i in range(7)))
     count_exceed = 0
     for w in GREEK:
-        # (3.1) agrees with the restriction of the uniform strategy
+        # (3.2) agrees with the restriction of the uniform strategy
         H, V = strategies[w]
         H7 = {p for p in H if 7 not in p}
         V7 = {p for p in V if 7 not in p}
         from_coords = reduce_terms(chains(H7, V7, list(range(7))), 7)
         rep.ok(from_coords == restricted_terms(w),
-               "%s: (3.1) agrees with the restricted strategy of Table 3.1" % w)
+               "%s: (3.2) agrees with the restricted strategy of Table 3.1" % w)
         match = [k for k in canon if canon[k] == restricted_terms(w)]
         expected = RESTRICTION_CLASS.get(w)
         rep.ok(match == ([expected] if expected else []),
@@ -677,7 +689,7 @@ def check_restrictions(rep, strategies):
             count_exceed += 1
         else:
             rep.ok(r == l7, "%s: restricted cost = L_7^* at the illustration" % w)
-    rep.ok(count_exceed == 14, "fourteen restrictions exceed L_7^* at their illustrations")
+    rep.ok(count_exceed == 14, "Section 3: fourteen restrictions exceed L_7^* at their illustrations")
     # the alpha example in Section 1 and Figure 1.1(e)
     rep.ok(restricted_terms("alpha") == reduce_terms(L6_TERMS + ["056", "135"], 7),
            "alpha: restricted cost = max(L_6^*, s0+s5+s6, s1+s3+s5)")
@@ -697,7 +709,7 @@ def check_restrictions(rep, strategies):
 # ---------------------------------------------------------------------------
 
 def check_minimality(rep):
-    rep.begin("E. Minimality certificate: Table 5.2 and (5.2)")
+    rep.begin("E. Minimality certificate: Table 5.2 and (5.5)")
     for w in GREEK:
         p, L = CERT[w]
         rep.ok(nonincreasing(p), "%s: p_omega is nonincreasing" % w)
@@ -723,14 +735,15 @@ def check_minimality(rep):
 
 def check_arithmetic(rep, grid, samples, seed):
     rep.begin("F. Section 5: Lemma 5.1 exactly; Theorem 5.3 and Theorem 1.1 on test vectors")
-    # Lemma 5.1, exact: each other partition is dominated by one of the five
+    # Lemma 5.1, exact: one of the five has no larger maximum part-sum than
+    # each other partition
     rep.ok(sorted(I for I, J in PARTITIONS) ==
            sorted(list(PARTITION_DOMINATION) + [FIVE_PARTITIONS[w][0] for w in FIVE_PARTITIONS]),
-           "the ten partitions are the five of Lemma 5.1 and the five dominated ones")
+           "the ten partitions are the five of Lemma 5.1 and the five remaining partitions")
     for I, w in PARTITION_DOMINATION.items():
         I2, J2 = FIVE_PARTITIONS[w]
         ok = dominates(I, I2) and dominates(I, J2)
-        rep.ok(ok, "partition with part %s is dominated by the %s partition" % (I, w))
+        rep.ok(ok, "the %s partition is no worse than the partition with part %s" % (w, I))
     for w, (I, J) in FIVE_PARTITIONS.items():
         parts = {"".join(sorted(I + "6")), "".join(sorted(J + "6"))}
         rep.ok(parts <= set(PIECES[w]),
@@ -749,7 +762,8 @@ def check_arithmetic(rep, grid, samples, seed):
         f = max(l7, min(pw))
         if f != min(max(l6, x) for x in pw):
             bad_forms += 1
-        bs = [min(k if t == "KK" else ssum(s, t) for t in BOUNDS[i]) for i in range(1, 10)]
+        bs = [min(k if t == "KK" else ssum(s, t) for t in BOUNDS[i]) for i in BOUND_INDICES]
+        bs.append(min(ssum(s, t) for t in COLUMN_BOUND))
         lb = max([l7] + bs)
         if lb < f:
             bad_cov += 1
@@ -759,9 +773,9 @@ def check_arithmetic(rep, grid, samples, seed):
         if l7 < T and min(f, T) != max(l7, min(k, T)):
             bad_trunc += 1
     rep.ok(bad_forms == 0, "Theorem 1.1: the two forms agree (%d failures)" % bad_forms)
-    rep.ok(bad_cov == 0, "Theorem 5.3: max(L_7^*, b_1,...,b_9) >= F_8 (%d failures)" % bad_cov)
+    rep.ok(bad_cov == 0, "Theorem 5.3: max(L_7^*, min(D, P), b_1,...,b_8) >= F_8 (%d failures)" % bad_cov)
     rep.ok(bad_lb == 0, "each b_i <= F_8, consistent with Theorem 1.1 (%d failures)" % bad_lb)
-    rep.ok(bad_trunc == 0, "Lemma 5.2, identity (5.1) (%d failures)" % bad_trunc)
+    rep.ok(bad_trunc == 0, "Lemma 5.2, identity (5.2) in its proof (%d failures)" % bad_trunc)
     rep.note("%d test vectors (all with entries at most %d, plus %d random)"
              % (len(vectors), grid, samples))
 
@@ -798,7 +812,7 @@ def check_other_figures(rep):
                "Fig 2.1(%s): Q_0 cornered, arms cover 1..6 and share 6" % key)
         rep.ok(all(xov(s, X, i, j) for i, j in itertools.combinations(R, 2)) and vchain(s, X, R)
                and all(yov(s, X, i, j) for i, j in itertools.combinations(U, 2)) and hchain(s, X, U),
-               "Fig 2.1(%s): arm structure of Lemma 2.10" % key)
+               "Fig 2.1(%s): arm structure of Lemma 2.8" % key)
         if key == "a":
             C1, C2 = R, (U - {6}) | {4}
             rep.ok(left(s, X, 3, 4), "Fig 2.1(a): r = 4 right of u = 3")
@@ -937,13 +951,84 @@ def tex_panels(fig):
                           r"\{\$(\d)\$\}", p)
         X = {int(i): (float(x0), float(y0)) for x0, y0, x1, y1, i in sq}
         sides = {int(i): float(x1) - float(x0) for x0, y0, x1, y1, i in sq}
+        heights = {int(i): float(y1) - float(y0) for x0, y0, x1, y1, i in sq}
         groups = {}
         for kind, x0, y0, x1, y1, i in bars:
             key = (kind, y0 if kind == "hc" else x0)
             groups.setdefault(key, []).append(int(i))
-        out.append(dict(X=X, sides=sides, L=float(box[0][0]) if box else None,
+        out.append(dict(X=X, sides=sides, heights=heights,
+                        L=float(box[0][0]) if box else None,
+                        Lh=float(box[0][1]) if box else None,
                         bars=groups, text=p))
     return out
+
+
+def tex_name_key(x):
+    """Normalize a TeX side-sum name: 'J_{67}' -> 'J67', '\\Ppi' -> 'Ppi',
+    '\\mathcal K(s)' and '\\KK' -> 'KK'."""
+    x = re.sub(r"\\[ ,;!]", "", x)
+    x = x.replace("(s)", "").replace(" ", "").replace("\n", "")
+    x = re.sub(r"\\mathcal\{?K\}?", "KK", x)
+    return x.replace("_", "").replace("{", "").replace("}", "").replace("\\", "")
+
+
+TEX_NAME = r"\\?[A-Za-z]+(?:_\{?\d+\}?|_\\(?:pi|rho|chi))?"
+# the right-hand side of an equation ends at math delimiters, punctuation,
+# alignment, spacing commands, or the next relation
+RHS_END = re.compile(r"\$|\\\]|\\\\|\\end|\\q?quad|\\text|\\(?:le|ge|leq|geq|ne)(?![A-Za-z])"
+                     r"|(?<!\\)[,;.&<>=]|\n\s*\n")
+
+
+def side_sum_definitions(t):
+    """Pairs (name, right-hand side) for every equation NAME=... in the source
+    whose right-hand side begins with a side length s_i.  The right-hand side
+    is taken in full up to its end (see RHS_END), with whitespace and TeX
+    spacing removed, so that an incorrect continuation of a correct prefix is
+    not ignored."""
+    out = []
+    for m in re.finditer(r"(?<![A-Za-z\\+\-_^{(])(%s)\s*=\s*(?=s_\d)" % TEX_NAME, t):
+        e = RHS_END.search(t, m.end())
+        rhs = t[m.end():e.start() if e else len(t)]
+        rhs = re.sub(r"\\[ ,;!]|\s+", "", rhs)
+        out.append((m.group(1), rhs))
+    return out
+
+
+def tex_min_args(t, pos):
+    """Arguments of the \\min(...) beginning at or after position pos, split
+    at top-level commas.  Handles \\bigl( ... \\bigr) and nested parentheses
+    such as \\mathcal K(s)."""
+    i = t.index("(", pos)
+    depth, j = 0, i
+    while True:
+        if t[j] == "(":
+            depth += 1
+        elif t[j] == ")":
+            depth -= 1
+            if depth == 0:
+                break
+        j += 1
+    inner = re.sub(r"\\big[lr]", "", t[i + 1:j])
+    args, depth, cur = [], 0, ""
+    for ch in inner:
+        if ch in "({":
+            depth += 1
+        elif ch in ")}":
+            depth -= 1
+        if ch == "," and depth == 0:
+            args.append(cur)
+            cur = ""
+        else:
+            cur += ch
+    args.append(cur)
+    return [tex_name_key(a) for a in args]
+
+
+def drawn_as(p, s, L, idxs):
+    """Each drawn square Q_i, i in idxs, has width and height s_i, and the
+    drawn container has width and height L."""
+    return (p["L"] == L and p["Lh"] == L
+            and all(p["sides"].get(i) == s[i] and p["heights"].get(i) == s[i] for i in idxs))
 
 
 def as_int_map(X):
@@ -952,6 +1037,7 @@ def as_int_map(X):
 
 def check_tex(rep, path):
     rep.begin("H. Comparison with the LaTeX source " + path)
+    failures_before = rep.failures
     t = open(path, encoding="utf-8").read()
     # Table 1.1
     tab = t[t.index(r"\label{tab:pieces}"):]
@@ -975,41 +1061,77 @@ def check_tex(rep, path):
     rep.ok(found == {w: (tuple(CERT[w][0]), CERT[w][1]) for w in GREEK}, "Table 5.2")
     # Table 4.1
     nt = t[t.index(r"\label{tab:names}"):]
-    nt = nt[:nt.index(r"\end{tabular}")]
+    nt = nt[:nt.index(r"\end{longtable}")]
     texnames = {}
-    for name, rhs in re.findall(r"\$\\?([A-Za-z]+(?:_\{?\d+\}?|_\\(?:pi|rho|chi))?)=([s_\d+]+)\$", nt):
-        key = name.replace("_", "").replace("{", "").replace("}", "").replace("\\", "")
-        texnames[key] = tex_sums(rhs)[0]
+    for name, rhs in side_sum_definitions(nt):
+        ok = re.fullmatch(r"s_\d(?:\+s_\d)*", rhs) is not None
+        texnames[tex_name_key(name)] = tex_sums(rhs)[0] if ok else "?" + rhs
     rep.ok(texnames == NAMES, "Table 4.1 (%d names)" % len(texnames))
     # Table 5.1
     bt = t[t.index(r"\label{tab:bounds}"):]
     bt = bt[:bt.index(r"\end{tabular}")]
-    for i in range(1, 10):
+    for i in BOUND_INDICES:
         m = re.search(r"\$b_%d=\\min\((.*?)\)\$" % i, bt)
         names = [x.strip().replace("_", "").replace("{", "").replace("}", "").replace("\\", "")
                  for x in m.group(1).split(",")] if m else []
         names = ["KK" if x == "KK" else x for x in names]
         rep.ok(names == BOUNDS_BY_NAME[i], "Table 5.1 row b_%d" % i)
-    # Propositions 4.1-4.11 and the definition of b_2
-    for i in range(1, 10):
-        m = re.search(r"b_%d\(s\)(?::=|=)\\min(.*?)(?:\.|\\end|\$)" % i, t, re.S)
-        sums = tex_sums(m.group(1)) if m else []
-        if i == 1:
-            sums = sums + ["KK"]
-        rep.ok(sorted(sums) == sorted(BOUNDS[i]), "definition of b_%d" % i)
-    # Figures 3.1 and 3.2: labels, drawn packings, and bars
-    for label in ("fig:a", "fig:b"):
-        for p in tex_panels(tex_float(t, label)):
-            m = re.search(r"\$\\(\w+)\$,\\quad \$L_8\^\*=(\d+)\$\\\\ \$s=\(([0-9,]+)\)", p["text"])
-            w = next(v for v in GREEK if tex_name(v) == m.group(1))
-            s, L = tuple(map(int, m.group(3).split(","))), int(m.group(2))
-            rep.ok((s, L) == tuple(ILLUSTRATIONS[w]), "%s: panel %s label" % (label, w))
-            rep.ok(as_int_map(p["X"]) == coords_at(COORDS[w], s, L) and p["L"] == L
-                   and all(p["sides"][i] == s[i] for i in range(N8)),
-                   "%s: panel %s drawn as Table 3.1 at L = L_8^*" % (label, w))
-            drawn = sorted("".join(map(str, sorted(v))) for v in p["bars"].values())
-            rep.ok(drawn == tight_terms(s, w, L),
-                   "%s: panel %s bars are the side sums of %s equal to L_8^*" % (label, w, w))
+    # Lemma 2.4 (column bound): the general statement, specialized to n = 8
+    m = re.search(r"\\label\{lem:column\}(.*?)\\end\{lemma\}", t, re.S)
+    stmt = re.sub(r"\s+", "", m.group(1)) if m else ""
+    general = (r"n\ge6" in stmt and r"\min\bigl(s_1+s_3+s_{n-1},\P_n(s)\bigr)" in stmt
+               and r"P_n(s)=s_1+\sum_{i=4}^{n-1}s_i" in stmt)
+    at8 = ["".join(map(str, sorted({1, 3, 8 - 1}))),
+           "".join(map(str, [1] + list(range(4, 8))))]
+    rep.ok(general and at8 == COLUMN_BOUND,
+           "Lemma 2.4: min(s_1+s_3+s_{n-1}, P_n) at n = 8 is min(%s)" % ", ".join(at8))
+    # ... and its n = 8 instance displayed in Section 5.1
+    m = re.search(r"For \$n=8\$, Lemma~\\ref\{lem:column\} gives.*?L_8\^\*\(s\)\\ge\\min", t, re.S)
+    names = tex_min_args(t, m.end()) if m else []
+    rep.ok(names == COLUMN_BOUND_BY_NAME and [NAMES[x] for x in names] == COLUMN_BOUND,
+           "Section 5.1: column bound for n = 8 is min(%s)" % (", ".join(names) or "not found"))
+    # Propositions 4.1-4.11: the named arguments of
+    # each displayed minimum, resolved through the side-sum names
+    for i in BOUND_INDICES:
+        m = re.search(r"b_%d\(s\)\s*:?=\s*\\min" % i, t)
+        names = tex_min_args(t, m.end()) if m else []
+        resolved = ["KK" if x == "KK" else NAMES.get(x, "?" + x) for x in names]
+        rep.ok(names == BOUNDS_BY_NAME[i] and resolved == BOUNDS[i],
+               "definition of b_%d: %s" % (i, ", ".join(names) or "not found"))
+    # every equation 'NAME=<side sum>' in the source agrees with the names
+    # above; the complete right-hand side is compared
+    ndefs = 0
+    for name, rhs in side_sum_definitions(t):
+        if tex_name_key(name) not in NAMES:
+            continue
+        ndefs += 1
+        ok = re.fullmatch(r"s_\d(?:\+s_\d)*", rhs) is not None
+        rep.ok(ok and tex_sums(rhs)[0] == NAMES[tex_name_key(name)],
+               "definition %s=%s in the text%s" % (name, rhs, "" if ok else " (unrecognized expression)"))
+    rep.ok(ndefs >= len(NAMES), "every recurring side sum is defined in the text (%d definitions)" % ndefs)
+    # Figure 3.1, set over two pages: an uncaptioned first part followed by
+    # the captioned part labelled fig:strategies.  Labels, drawn packings, bars.
+    label = "fig:strategies"
+    second = tex_float(t, label)
+    i2 = t.index(second)
+    i1 = t.rindex(r"\begin{figure}", 0, i2)
+    first = t[i1:t.index(r"\end{figure}", i1)]
+    rep.ok(r"\caption" not in first and len(tex_panels(first)) + len(tex_panels(second)) == len(GREEK),
+           "%s: two parts, uncaptioned first part, %d panels in all" % (label, len(GREEK)))
+    seen = []
+    for p in tex_panels(first) + tex_panels(second):
+        m = re.search(r"\$\\(\w+)\$,\\quad \$L_8\^\*=(\d+)\$\\\\ \$s=\(([0-9,]+)\)", p["text"])
+        w = next(v for v in GREEK if tex_name(v) == m.group(1))
+        seen.append(w)
+        s, L = tuple(map(int, m.group(3).split(","))), int(m.group(2))
+        rep.ok((s, L) == tuple(ILLUSTRATIONS[w]), "%s: panel %s label" % (label, w))
+        rep.ok(as_int_map(p["X"]) == coords_at(COORDS[w], s, L)
+               and drawn_as(p, s, L, range(N8)),
+               "%s: panel %s drawn as Table 3.1 at L = L_8^*" % (label, w))
+        drawn = sorted("".join(map(str, sorted(v))) for v in p["bars"].values())
+        rep.ok(drawn == tight_terms(s, w, L),
+               "%s: panel %s bars are the side sums of %s equal to L_8^*" % (label, w, w))
+    rep.ok(seen == GREEK, "%s: panels appear in the order alpha, ..., psi" % label)
     # Figures with explicit packings
     figs = [("fig:insert", [FIGURE_1_1[k][1:] for k in "abcde"]),
             ("fig:cover8", list(FIGURE_2_1.values())),
@@ -1021,10 +1143,13 @@ def check_tex(rep, path):
         panels = tex_panels(tex_float(t, label))
         ok = len(panels) == len(data)
         for p, (s, L, X) in zip(panels, data):
-            ok = ok and as_int_map(p["X"]) == X and p["L"] == L
-            ok = ok and all(p["sides"][i] == s[i] for i in X)
+            ok = ok and as_int_map(p["X"]) == X and drawn_as(p, s, L, X)
         rep.ok(ok, "%s: drawn packings agree with the data in this script" % label)
-    rep.note("tables, bound definitions, and drawn packings agree with the source")
+    if rep.failures == failures_before:
+        rep.note("tables, bound definitions, %d side-sum definitions, and drawn packings "
+                 "agree with the source" % ndefs)
+    else:
+        rep.note("%d comparison(s) with the source failed" % (rep.failures - failures_before))
 
 
 # ---------------------------------------------------------------------------
@@ -1042,8 +1167,10 @@ def main(argv=None):
                     help="number of additional random test vectors in check F (default 20000)")
     ap.add_argument("--seed", type=int, default=2026, help="random seed for check F")
     ap.add_argument("-v", "--verbose", action="store_true", help="print every individual check")
+    ap.add_argument("--version", action="version", version="%(prog)s " + __version__)
     args = ap.parse_args(argv)
 
+    print("verify_eight_squares.py version %s" % __version__)
     rep = Report(verbose=args.verbose)
     check_formulas(rep)
     strategies = check_constructions(rep)
